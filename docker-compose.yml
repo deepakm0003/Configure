@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: roadsense
+      POSTGRES_USER: roadsense
+      POSTGRES_PASSWORD: dev123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roadsense"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://roadsense:dev123@postgres:5432/roadsense
+      RS_API_KEY: dev-key-123
+      KAFKA_BOOTSTRAP_SERVERS: 20.213.158.116:9094
+      KAFKA_SASL_USERNAME: iiitd
+      KAFKA_SASL_PASSWORD: U2i91UPq8z2-3AB3GImft4Q7QKUG8cXk
+      KAFKA_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      KAFKA_SASL_MECHANISM: SCRAM-SHA-512
+      RS_TOPIC_PREFIX: iiitd_
+      CORS_ORIGINS: "*"
+      PORT: 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_HTTP: http://localhost:8000
+      VITE_API_WS: ws://localhost:8000/ws
+      VITE_RS_CONTROL_KEY: dev-key-123
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
